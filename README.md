@@ -17,7 +17,7 @@ A robust Java-based mobile automation framework leveraging Appium for comprehens
 │   │   └── utils/         # Testing utilities
 │   └── test/java/com/trustwallet/
 │       └── tests/         # Test implementations
-├── test-cases/            # Test documentation
+├── manual-test-cases/     # Test documentation
 │   ├── create-wallet/
 │   │   ├── happy-path.md
 │   │   ├── edge-cases.md
