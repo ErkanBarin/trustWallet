@@ -110,8 +110,8 @@ public abstract class BasePage {
 
     @Step("Swipe from element {0} to element {1}")
     protected void swipeFromElementToElement(By fromLocator, By toLocator) {
-        MobileElement fromElement = waitUtils.waitForElementVisible(fromLocator);
-        MobileElement toElement = waitUtils.waitForElementVisible(toLocator);
+        MobileElement fromElement = waitUtils.waitForElementToBeVisible(fromLocator);
+        MobileElement toElement = waitUtils.waitForElementToBeVisible(toLocator);
 
         int fromX = fromElement.getLocation().getX() + fromElement.getSize().getWidth() / 2;
         int fromY = fromElement.getLocation().getY() + fromElement.getSize().getHeight() / 2;
