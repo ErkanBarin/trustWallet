@@ -1,6 +1,6 @@
 package com.trustwallet.pages;
 
-import com.trustwallet.utils.WaitUtils;
+import io.appium.java_client.AppiumDriver;
 import io.appium.java_client.MobileElement;
 import io.appium.java_client.TouchAction;
 import io.appium.java_client.android.AndroidDriver;
@@ -13,48 +13,99 @@ import org.openqa.selenium.support.PageFactory;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import com.trustwallet.utils.WaitUtils;
+
 import java.time.Duration;
 
+/**
+ * Base class for all page objects.
+ */
 public abstract class BasePage {
-    protected static final Logger logger = LoggerFactory.getLogger(BasePage.class);
-    protected final AndroidDriver<MobileElement> driver;
+    protected final AppiumDriver<MobileElement> driver;
     protected final WaitUtils waitUtils;
+    protected static final Logger log = LoggerFactory.getLogger(BasePage.class);
 
-    public BasePage(AndroidDriver<MobileElement> driver) {
+    /**
+     * Constructor for BasePage.
+     * 
+     * @param driver AppiumDriver instance
+     */
+    public BasePage(AppiumDriver<MobileElement> driver) {
         this.driver = driver;
         this.waitUtils = new WaitUtils(driver);
-        PageFactory.initElements(new AppiumFieldDecorator(driver), this);
+
+        // Initialize elements with PageFactory
+        PageFactory.initElements(new AppiumFieldDecorator(driver, Duration.ofSeconds(10)), this);
+        log.info("Initialized {} page", this.getClass().getSimpleName());
     }
 
-    @Step("Click on element: {0}")
+    /**
+     * Check if the page is loaded.
+     * 
+     * @return true if page is loaded, false otherwise
+     */
+    public abstract boolean isPageLoaded();
+
+    /**
+     * Click on an element.
+     * 
+     * @param locator element locator
+     */
     protected void click(By locator) {
-        logger.info("Clicking on element: {}", locator);
-        waitUtils.waitForElementClickable(locator).click();
+        log.debug("Clicking on element: {}", locator);
+        waitUtils.waitForElementToBeClickable(locator).click();
     }
 
-    @Step("Enter text: {1} into element: {0}")
+    /**
+     * Enter text in a field.
+     * 
+     * @param locator element locator
+     * @param text    text to enter
+     */
     protected void sendKeys(By locator, String text) {
-        logger.info("Entering text: '{}' into element: {}", text, locator);
-        MobileElement element = waitUtils.waitForElementVisible(locator);
-        element.clear();
-        element.sendKeys(text);
+        log.debug("Entering text '{}' in element: {}", text, locator);
+        waitUtils.waitForElementToBeVisible(locator).sendKeys(text);
     }
 
-    @Step("Get text from element: {0}")
+    /**
+     * Get text from an element.
+     * 
+     * @param locator element locator
+     * @return text from element
+     */
     protected String getText(By locator) {
-        logger.info("Getting text from element: {}", locator);
-        return waitUtils.waitForElementVisible(locator).getText();
+        log.debug("Getting text from element: {}", locator);
+        return waitUtils.waitForElementToBeVisible(locator).getText();
     }
 
-    @Step("Check if element is displayed: {0}")
+    /**
+     * Check if element is displayed.
+     * 
+     * @param locator element locator
+     * @return true if element is displayed, false otherwise
+     */
     protected boolean isElementDisplayed(By locator) {
         try {
-            logger.info("Checking if element is displayed: {}", locator);
             return driver.findElement(locator).isDisplayed();
         } catch (Exception e) {
-            logger.info("Element is not displayed: {}", locator);
             return false;
         }
+    }
+
+    /**
+     * Swipe up on screen.
+     */
+    protected void swipeUp() {
+        log.debug("Performing swipe up gesture");
+        // Implementation for swipe up
+    }
+
+    /**
+     * Swipe down on screen.
+     */
+    protected void swipeDown() {
+        log.debug("Performing swipe down gesture");
+        // Implementation for swipe down
     }
 
     @Step("Swipe from element {0} to element {1}")
@@ -67,7 +118,7 @@ public abstract class BasePage {
         int toX = toElement.getLocation().getX() + toElement.getSize().getWidth() / 2;
         int toY = toElement.getLocation().getY() + toElement.getSize().getHeight() / 2;
 
-        logger.info("Swiping from ({},{}) to ({},{})", fromX, fromY, toX, toY);
+        log.info("Swiping from ({},{}) to ({},{})", fromX, fromY, toX, toY);
 
         new TouchAction<>(driver)
                 .press(PointOption.point(fromX, fromY))
@@ -76,7 +127,4 @@ public abstract class BasePage {
                 .release()
                 .perform();
     }
-
-    @Step("Wait for page to load")
-    public abstract boolean isPageLoaded();
 }

@@ -1,9 +1,10 @@
 package com.trustwallet.utils;
 
+import io.appium.java_client.AppiumDriver;
 import io.appium.java_client.MobileElement;
-import io.appium.java_client.android.AndroidDriver;
 import org.apache.commons.io.FileUtils;
 import org.openqa.selenium.OutputType;
+import org.openqa.selenium.TakesScreenshot;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -12,60 +13,86 @@ import java.io.IOException;
 import java.text.SimpleDateFormat;
 import java.util.Date;
 
+/**
+ * Utility class for capturing screenshots.
+ */
 public class ScreenshotUtils {
-    private static final Logger logger = LoggerFactory.getLogger(ScreenshotUtils.class);
-    private final AndroidDriver<MobileElement> driver;
-    private final String screenshotPath;
+    private static final Logger log = LoggerFactory.getLogger(ScreenshotUtils.class);
+    private final AppiumDriver<MobileElement> driver;
+    private final ConfigManager configManager;
 
-    public ScreenshotUtils(AndroidDriver<MobileElement> driver) {
+    /**
+     * Constructor for ScreenshotUtils.
+     *
+     * @param driver AppiumDriver instance
+     */
+    public ScreenshotUtils(AppiumDriver<MobileElement> driver) {
         this.driver = driver;
-        this.screenshotPath = ConfigManager.getInstance().getProperty("screenshot.path");
-        createScreenshotDirectory();
+        this.configManager = ConfigManager.getInstance();
     }
 
-    private void createScreenshotDirectory() {
-        File directory = new File(screenshotPath);
-        if (!directory.exists()) {
-            boolean created = directory.mkdirs();
-            if (created) {
-                logger.info("Screenshot directory created: {}", screenshotPath);
-            } else {
-                logger.warn("Failed to create screenshot directory: {}", screenshotPath);
-            }
-        }
-    }
-
-    public String captureScreenshot(String testName) {
-        String timestamp = new SimpleDateFormat("yyyyMMdd_HHmmss").format(new Date());
-        String fileName = testName + "_" + timestamp + ".png";
-        String filePath = screenshotPath + fileName;
-        
-        try {
-            File screenshot = driver.getScreenshotAs(OutputType.FILE);
-            File destination = new File(filePath);
-            FileUtils.copyFile(screenshot, destination);
-            logger.info("Screenshot captured: {}", filePath);
-            return filePath;
-        } catch (IOException e) {
-            logger.error("Failed to capture screenshot", e);
-            return null;
-        }
-    }
-
+    /**
+     * Capture screenshot and save to file.
+     *
+     * @param testName name of the test
+     * @return path to the saved screenshot file or null if failed
+     */
     public String captureScreenshotOnFailure(String testName) {
-        String timestamp = new SimpleDateFormat("yyyyMMdd_HHmmss").format(new Date());
-        String fileName = "FAILURE_" + testName + "_" + timestamp + ".png";
-        String filePath = screenshotPath + fileName;
-        
+        log.info("Capturing screenshot for failed test: {}", testName);
+
+        if (driver == null) {
+            log.error("Driver is null, cannot capture screenshot");
+            return null;
+        }
+
         try {
-            File screenshot = driver.getScreenshotAs(OutputType.FILE);
-            File destination = new File(filePath);
-            FileUtils.copyFile(screenshot, destination);
-            logger.info("Failure screenshot captured: {}", filePath);
+            // Create screenshot directory if it doesn't exist
+            String screenshotDir = configManager.getProperty("screenshot.path", "./screenshots/");
+            File directory = new File(screenshotDir);
+            if (!directory.exists()) {
+                directory.mkdirs();
+            }
+
+            // Generate unique filename with timestamp
+            String timestamp = new SimpleDateFormat("yyyyMMdd_HHmmss").format(new Date());
+            String fileName = String.format("%s_%s_%s.png",
+                    testName.replaceAll("[^a-zA-Z0-9.-]", "_"),
+                    timestamp,
+                    configManager.getProperty("environment", "unknown"));
+
+            // Capture screenshot
+            File screenshotFile = ((TakesScreenshot) driver).getScreenshotAs(OutputType.FILE);
+            String filePath = screenshotDir + fileName;
+
+            // Save screenshot to file
+            FileUtils.copyFile(screenshotFile, new File(filePath));
+            log.info("Screenshot saved to: {}", filePath);
+
             return filePath;
         } catch (IOException e) {
-            logger.error("Failed to capture failure screenshot", e);
+            log.error("Failed to capture screenshot", e);
             return null;
         }
     }
-} 
+
+    /**
+     * Capture screenshot as byte array for Allure reporting.
+     *
+     * @return screenshot as byte array or null if failed
+     */
+    public byte[] captureScreenshotAsBytes() {
+        log.debug("Capturing screenshot as bytes");
+
+        if (driver == null) {
+            log.error("Driver is null, cannot capture screenshot");
+            return null;
+        }
+
+        try {
+            return ((TakesScreenshot) driver).getScreenshotAs(OutputType.BYTES);
+        } catch (Exception e) {
+            log.error("Failed to capture screenshot as bytes", e);
+            return null;
+        }
+    }
+}

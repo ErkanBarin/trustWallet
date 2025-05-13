@@ -1,119 +1,216 @@
 package com.trustwallet.pages;
 
+import io.appium.java_client.AppiumDriver;
 import io.appium.java_client.MobileElement;
-import io.appium.java_client.android.AndroidDriver;
 import io.appium.java_client.pagefactory.AndroidFindBy;
+import io.appium.java_client.pagefactory.iOSXCUITFindBy;
 import io.qameta.allure.Step;
 import org.openqa.selenium.By;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 import java.util.List;
 
+/**
+ * Page object for the Create Wallet flow.
+ */
 public class CreateWalletPage extends BasePage {
+    private static final Logger log = LoggerFactory.getLogger(CreateWalletPage.class);
 
-    // Terms and Conditions locators
-    private static final By TERMS_TITLE = By.id("com.wallet.crypto.trustapp:id/title");
-    private static final By AGREE_BUTTON = By.id("com.wallet.crypto.trustapp:id/action_confirm");
+    // Element locators using Page Factory annotations
+    @AndroidFindBy(id = "com.wallet.crypto.trustapp:id/terms_checkbox")
+    private MobileElement termsCheckbox;
 
-    // Seed phrase locators
-    private static final By SEED_PHRASE_TITLE = By.xpath("//android.widget.TextView[contains(@text, 'Secret Phrase')]");
-    private static final By SEED_PHRASE_WORDS = By.xpath("//android.widget.TextView[contains(@resource-id, 'word')]");
-    private static final By CONTINUE_BUTTON = By.id("com.wallet.crypto.trustapp:id/action_continue");
+    @AndroidFindBy(id = "com.wallet.crypto.trustapp:id/terms_text")
+    private MobileElement termsText;
 
-    // Confirm seed phrase locators
-    private static final By CONFIRM_TITLE = By.xpath("//android.widget.TextView[contains(@text, 'Verify')]");
-    private static final By SEED_WORD_BUTTONS = By.xpath("//android.widget.Button[contains(@resource-id, 'word')]");
-    private static final By VERIFY_BUTTON = By.id("com.wallet.crypto.trustapp:id/action_verify");
+    @AndroidFindBy(id = "com.wallet.crypto.trustapp:id/next_button")
+    private MobileElement nextButton;
 
-    // PIN setup locators
-    private static final By PIN_TITLE = By.xpath("//android.widget.TextView[contains(@text, 'Create PIN')]");
-    private static final By PIN_BUTTONS = By
-            .xpath("//android.widget.TextView[@resource-id='com.wallet.crypto.trustapp:id/text']");
-    private static final By PIN_CONFIRM_TITLE = By.xpath("//android.widget.TextView[contains(@text, 'Confirm PIN')]");
+    @AndroidFindBy(id = "com.wallet.crypto.trustapp:id/reveal_phrase_button")
+    private MobileElement revealPhraseButton;
 
-    // Success screen locators
-    private static final By SUCCESS_MESSAGE = By.xpath("//android.widget.TextView[contains(@text, 'Wallet Created')]");
+    @AndroidFindBy(id = "com.wallet.crypto.trustapp:id/seed_phrase_container")
+    private MobileElement seedPhraseContainer;
 
-    public CreateWalletPage(AndroidDriver<MobileElement> driver) {
+    @AndroidFindBy(id = "com.wallet.crypto.trustapp:id/copy_button")
+    private MobileElement copyButton;
+
+    @AndroidFindBy(id = "com.wallet.crypto.trustapp:id/seed_word")
+    private List<MobileElement> seedWords;
+
+    @AndroidFindBy(id = "com.wallet.crypto.trustapp:id/word_option")
+    private List<MobileElement> wordOptions;
+
+    @AndroidFindBy(id = "com.wallet.crypto.trustapp:id/continue_button")
+    private MobileElement continueButton;
+
+    @AndroidFindBy(id = "com.wallet.crypto.trustapp:id/pin_input")
+    private MobileElement pinInput;
+
+    @AndroidFindBy(id = "com.wallet.crypto.trustapp:id/error_message")
+    private MobileElement errorMessage;
+
+    // Backup locators for elements that might be challenging with Page Factory
+    private static final By WELCOME_BANNER = By.id("com.wallet.crypto.trustapp:id/welcome_banner");
+
+    /**
+     * Constructor for CreateWalletPage.
+     *
+     * @param driver AppiumDriver instance
+     */
+    public CreateWalletPage(AppiumDriver<MobileElement> driver) {
         super(driver);
     }
 
+    /**
+     * Check if page is loaded.
+     *
+     * @return true if page is loaded, false otherwise
+     */
     @Override
     public boolean isPageLoaded() {
-        return isElementDisplayed(TERMS_TITLE) ||
-                isElementDisplayed(SEED_PHRASE_TITLE) ||
-                isElementDisplayed(CONFIRM_TITLE) ||
-                isElementDisplayed(PIN_TITLE);
+        log.info("Checking if Create Wallet page is loaded");
+        return isElementDisplayed(By.id("com.wallet.crypto.trustapp:id/terms_checkbox"));
     }
 
-    @Step("Agree to Terms and Conditions")
-    public CreateWalletPage agreeTerms() {
-        logger.info("Agreeing to Terms and Conditions");
-        waitUtils.waitForElementVisible(TERMS_TITLE);
-        click(AGREE_BUTTON);
+    /**
+     * Accept terms and conditions.
+     *
+     * @return this page object
+     */
+    @Step("Accept terms and conditions")
+    public CreateWalletPage acceptTerms() {
+        log.info("Accepting terms and conditions");
+        termsCheckbox.click();
         return this;
     }
 
-    @Step("Reveal seed phrase")
-    public List<String> revealSeed() {
-        logger.info("Revealing seed phrase");
-        waitUtils.waitForElementVisible(SEED_PHRASE_TITLE);
-
-        // Collect all seed words
-        List<MobileElement> seedWordElements = driver.findElements(SEED_PHRASE_WORDS);
-        List<String> seedWords = seedWordElements.stream()
-                .map(MobileElement::getText)
-                .collect(java.util.stream.Collectors.toList());
-
-        logger.info("Seed phrase collected: {}", seedWords);
-        click(CONTINUE_BUTTON);
-        return seedWords;
+    /**
+     * Open terms and conditions.
+     *
+     * @return this page object
+     */
+    @Step("Open terms and conditions")
+    public CreateWalletPage openTerms() {
+        log.info("Opening terms and conditions");
+        termsText.click();
+        return this;
     }
 
-    @Step("Confirm seed phrase")
-    public CreateWalletPage confirmSeed(List<String> seedWords) {
-        logger.info("Confirming seed phrase");
-        waitUtils.waitForElementVisible(CONFIRM_TITLE);
+    /**
+     * Click next button.
+     *
+     * @return this page object
+     */
+    @Step("Click next button")
+    public CreateWalletPage clickNext() {
+        log.info("Clicking next button");
+        nextButton.click();
+        return this;
+    }
 
-        // Select each word in the correct order
-        for (String word : seedWords) {
-            List<MobileElement> wordButtons = driver.findElements(SEED_WORD_BUTTONS);
-            for (MobileElement button : wordButtons) {
-                if (button.getText().equals(word)) {
-                    button.click();
+    /**
+     * Reveal seed phrase.
+     *
+     * @return this page object
+     */
+    @Step("Reveal seed phrase")
+    public CreateWalletPage revealSeedPhrase() {
+        log.info("Revealing seed phrase");
+        revealPhraseButton.click();
+        return this;
+    }
+
+    /**
+     * Copy seed phrase.
+     *
+     * @return this page object
+     */
+    @Step("Copy seed phrase")
+    public CreateWalletPage copySeedPhrase() {
+        log.info("Copying seed phrase");
+        copyButton.click();
+        return this;
+    }
+
+    /**
+     * Get seed phrase words.
+     *
+     * @return list of seed phrase words
+     */
+    @Step("Get seed phrase words")
+    public List<String> getSeedPhraseWords() {
+        log.info("Getting seed phrase words");
+        return seedWords.stream()
+                .map(MobileElement::getText)
+                .toList();
+    }
+
+    /**
+     * Confirm seed phrase.
+     *
+     * @param words list of words to confirm
+     * @return this page object
+     */
+    @Step("Confirm seed phrase")
+    public CreateWalletPage confirmSeedPhrase(List<String> words) {
+        log.info("Confirming seed phrase");
+        for (String word : words) {
+            for (MobileElement option : wordOptions) {
+                if (option.getText().equals(word)) {
+                    option.click();
                     break;
                 }
             }
         }
-
-        click(VERIFY_BUTTON);
         return this;
     }
 
-    @Step("Set PIN: {0}")
-    public CreateWalletPage setPIN(String pin) {
-        logger.info("Setting PIN");
-        waitUtils.waitForElementVisible(PIN_TITLE);
-        enterPIN(pin);
-
-        // Confirm PIN
-        waitUtils.waitForElementVisible(PIN_CONFIRM_TITLE);
-        enterPIN(pin);
-
+    /**
+     * Click continue button.
+     *
+     * @return this page object
+     */
+    @Step("Click continue button")
+    public CreateWalletPage clickContinue() {
+        log.info("Clicking continue button");
+        continueButton.click();
         return this;
     }
 
-    private void enterPIN(String pin) {
-        for (char digit : pin.toCharArray()) {
-            String digitStr = String.valueOf(digit);
-            By digitLocator = By
-                    .xpath("//android.widget.TextView[@resource-id='com.wallet.crypto.trustapp:id/text' and @text='"
-                            + digitStr + "']");
-            click(digitLocator);
-        }
+    /**
+     * Enter PIN.
+     *
+     * @param pin PIN to enter
+     * @return this page object
+     */
+    @Step("Enter PIN: {0}")
+    public CreateWalletPage enterPin(String pin) {
+        log.info("Entering PIN");
+        pinInput.sendKeys(pin);
+        return this;
     }
 
-    @Step("Check if wallet was created successfully")
-    public boolean isWalletCreated() {
-        return isElementDisplayed(SUCCESS_MESSAGE);
+    /**
+     * Get error message.
+     *
+     * @return error message text
+     */
+    @Step("Get error message")
+    public String getErrorMessage() {
+        log.info("Getting error message");
+        return errorMessage.getText();
+    }
+
+    /**
+     * Check if wallet creation is successful.
+     *
+     * @return true if wallet creation is successful, false otherwise
+     */
+    @Step("Check if wallet creation is successful")
+    public boolean isWalletCreationSuccessful() {
+        log.info("Checking if wallet creation is successful");
+        return isElementDisplayed(WELCOME_BANNER);
     }
 }

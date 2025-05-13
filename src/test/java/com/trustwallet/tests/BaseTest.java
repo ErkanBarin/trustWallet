@@ -2,136 +2,172 @@ package com.trustwallet.tests;
 
 import com.trustwallet.utils.ConfigManager;
 import com.trustwallet.utils.ScreenshotUtils;
+import io.appium.java_client.AppiumDriver;
 import io.appium.java_client.MobileElement;
 import io.appium.java_client.android.AndroidDriver;
+import io.appium.java_client.remote.AndroidMobileCapabilityType;
+import io.appium.java_client.remote.MobileCapabilityType;
 import io.qameta.allure.Attachment;
+import org.openqa.selenium.OutputType;
 import org.openqa.selenium.remote.DesiredCapabilities;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.testng.ITestResult;
-import org.testng.annotations.AfterMethod;
-import org.testng.annotations.BeforeMethod;
-import org.testng.annotations.Parameters;
+import org.testng.annotations.*;
 
 import java.io.File;
-import java.net.MalformedURLException;
 import java.net.URL;
 import java.util.concurrent.TimeUnit;
 
+/**
+ * Base class for all test classes.
+ * Handles driver setup, configuration loading, and test lifecycle.
+ */
 public class BaseTest {
-    protected static final Logger logger = LoggerFactory.getLogger(BaseTest.class);
-    protected AndroidDriver<MobileElement> driver;
-    protected ScreenshotUtils screenshotUtils;
+    protected static final Logger log = LoggerFactory.getLogger(BaseTest.class);
+    protected AppiumDriver<MobileElement> driver;
     protected ConfigManager configManager;
+    protected ScreenshotUtils screenshotUtils;
 
-    @BeforeMethod
-    @Parameters({ "deviceName", "platformVersion", "udid" })
-    public void setUp(String deviceName, String platformVersion, String udid) {
-        logger.info("Setting up test");
+    /**
+     * Setup method that runs before each test class.
+     * Loads configuration and initializes the driver.
+     * 
+     * @param environment test environment to use (dev, staging, prod)
+     * @throws Exception if driver initialization fails
+     */
+    @Parameters({ "environment" })
+    @BeforeClass(alwaysRun = true)
+    public void setUp(@Optional("dev") String environment) throws Exception {
+        log.info("Setting up test environment: {}", environment);
+
+        // Load environment-specific configuration
         configManager = ConfigManager.getInstance();
-
-        String testMode = configManager.getProperty("test.mode");
-        DesiredCapabilities capabilities = new DesiredCapabilities();
-
-        if ("browserstack".equalsIgnoreCase(testMode)) {
-            setupBrowserStackCapabilities(capabilities);
-        } else {
-            setupLocalCapabilities(capabilities, deviceName, platformVersion, udid);
-        }
+        configManager.loadConfig(environment);
 
         // Initialize driver
-        try {
-            String appiumServerUrl = "browserstack".equalsIgnoreCase(testMode)
-                    ? "https://hub-cloud.browserstack.com/wd/hub"
-                    : configManager.getProperty("appium.server.url");
+        initializeDriver();
 
-            driver = new AndroidDriver<>(new URL(appiumServerUrl), capabilities);
-            driver.manage().timeouts().implicitlyWait(
-                    configManager.getIntProperty("implicit.wait"),
-                    TimeUnit.SECONDS);
+        // Initialize screenshot utility
+        screenshotUtils = new ScreenshotUtils(driver);
 
-            screenshotUtils = new ScreenshotUtils(driver);
-            logger.info("Driver initialized successfully");
-        } catch (MalformedURLException e) {
-            logger.error("Failed to initialize driver", e);
-            throw new RuntimeException("Failed to initialize driver", e);
-        }
+        log.info("Test setup complete");
     }
 
-    private void setupLocalCapabilities(DesiredCapabilities capabilities, String deviceName, String platformVersion,
-            String udid) {
-        // Device capabilities
-        capabilities.setCapability("deviceName",
-                deviceName != null ? deviceName : configManager.getProperty("device.name"));
-        capabilities.setCapability("platformName", configManager.getProperty("device.platform"));
-        capabilities.setCapability("platformVersion",
-                platformVersion != null ? platformVersion : configManager.getProperty("device.version"));
+    /**
+     * Initialize the Appium driver with capabilities from configuration.
+     * 
+     * @throws Exception if driver initialization fails
+     */
+    private void initializeDriver() throws Exception {
+        log.info("Initializing Appium driver");
 
-        if (udid != null && !udid.isEmpty()) {
-            capabilities.setCapability("udid", udid);
-        } else if (configManager.getProperty("device.udid") != null
-                && !configManager.getProperty("device.udid").isEmpty()) {
-            capabilities.setCapability("udid", configManager.getProperty("device.udid"));
-        }
+        DesiredCapabilities capabilities = new DesiredCapabilities();
 
-        // Application capabilities
+        // Set common capabilities
+        capabilities.setCapability(MobileCapabilityType.PLATFORM_NAME, configManager.getProperty("device.platform"));
+        capabilities.setCapability(MobileCapabilityType.PLATFORM_VERSION, configManager.getProperty("device.version"));
+        capabilities.setCapability(MobileCapabilityType.DEVICE_NAME, configManager.getProperty("device.name"));
+        capabilities.setCapability(MobileCapabilityType.AUTOMATION_NAME, "UiAutomator2");
+        capabilities.setCapability(MobileCapabilityType.NEW_COMMAND_TIMEOUT, 180);
+
+        // Set application capabilities
         String appPath = configManager.getProperty("app.path");
-        File app = new File(appPath);
-        if (app.exists()) {
-            capabilities.setCapability("app", app.getAbsolutePath());
-        } else {
-            capabilities.setCapability("appPackage", configManager.getProperty("app.package"));
-            capabilities.setCapability("appActivity", configManager.getProperty("app.activity"));
-        }
-
-        // Other capabilities
-        capabilities.setCapability("automationName", "UiAutomator2");
-        capabilities.setCapability("noReset", false);
-        capabilities.setCapability("fullReset", true);
-        capabilities.setCapability("newCommandTimeout", 180);
-    }
-
-    private void setupBrowserStackCapabilities(DesiredCapabilities capabilities) {
-        // BrowserStack credentials
-        capabilities.setCapability("browserstack.user", configManager.getProperty("browserstack.username"));
-        capabilities.setCapability("browserstack.key", configManager.getProperty("browserstack.access.key"));
-
-        // App
-        capabilities.setCapability("app", configManager.getProperty("browserstack.app.url"));
-
-        // Device
-        capabilities.setCapability("device", configManager.getProperty("browserstack.device"));
-        capabilities.setCapability("os_version", configManager.getProperty("browserstack.os.version"));
-
-        // Other capabilities
-        capabilities.setCapability("project", "Trust Wallet Test");
-        capabilities.setCapability("build", "Trust Wallet Build 1.0");
-        capabilities.setCapability("name", "Create Wallet Test");
-    }
-
-    @AfterMethod
-    public void tearDown(ITestResult result) {
-        if (result.getStatus() == ITestResult.FAILURE) {
-            logger.info("Test failed: {}", result.getName());
-            if (driver != null) {
-                String screenshotPath = screenshotUtils.captureScreenshotOnFailure(result.getName());
-                if (screenshotPath != null) {
-                    logger.info("Screenshot captured at: {}", screenshotPath);
-                }
+        if (appPath != null && !appPath.isEmpty()) {
+            File app = new File(appPath);
+            if (app.exists()) {
+                capabilities.setCapability(MobileCapabilityType.APP, app.getAbsolutePath());
+            } else {
+                log.warn("App file not found at: {}", appPath);
             }
         }
 
-        if (driver != null) {
-            logger.info("Quitting driver");
-            driver.quit();
+        capabilities.setCapability(AndroidMobileCapabilityType.APP_PACKAGE, configManager.getProperty("app.package"));
+        capabilities.setCapability(AndroidMobileCapabilityType.APP_ACTIVITY, configManager.getProperty("app.activity"));
+
+        // Set test mode specific capabilities
+        String testMode = configManager.getProperty("test.mode");
+        if ("browserstack".equals(testMode)) {
+            setupBrowserStackCapabilities(capabilities);
+        }
+
+        // Set reset strategy
+        capabilities.setCapability(MobileCapabilityType.NO_RESET, false);
+        capabilities.setCapability(MobileCapabilityType.FULL_RESET, true);
+
+        // Create driver instance
+        String appiumServerUrl = configManager.getProperty("appium.server.url");
+        log.info("Connecting to Appium server at: {}", appiumServerUrl);
+        driver = new AndroidDriver<>(new URL(appiumServerUrl), capabilities);
+
+        // Set implicit wait
+        int implicitWait = configManager.getIntProperty("implicit.wait");
+        driver.manage().timeouts().implicitlyWait(implicitWait, TimeUnit.SECONDS);
+
+        log.info("Driver initialized successfully");
+    }
+
+    /**
+     * Set up BrowserStack specific capabilities.
+     * 
+     * @param capabilities DesiredCapabilities to modify
+     */
+    private void setupBrowserStackCapabilities(DesiredCapabilities capabilities) {
+        log.info("Setting up BrowserStack capabilities");
+
+        capabilities.setCapability("browserstack.user", configManager.getProperty("browserstack.username"));
+        capabilities.setCapability("browserstack.key", configManager.getProperty("browserstack.access.key"));
+        capabilities.setCapability("app", configManager.getProperty("browserstack.app.url"));
+        capabilities.setCapability("device", configManager.getProperty("browserstack.device"));
+        capabilities.setCapability("os_version", configManager.getProperty("browserstack.os.version"));
+        capabilities.setCapability("project", "Trust Wallet");
+        capabilities.setCapability("build", "Build " + System.currentTimeMillis());
+        capabilities.setCapability("name", "Wallet Creation Tests");
+    }
+
+    /**
+     * Method that runs after each test method.
+     * Takes screenshot on test failure and attaches it to Allure report.
+     * 
+     * @param result test result
+     */
+    @AfterMethod(alwaysRun = true)
+    public void afterMethod(ITestResult result) {
+        if (result.getStatus() == ITestResult.FAILURE) {
+            log.error("Test failed: {}", result.getName());
+            captureScreenshot(result.getName());
         }
     }
 
-    @Attachment(value = "Screenshot", type = "image/png")
-    protected byte[] attachScreenshot() {
+    /**
+     * Teardown method that runs after each test class.
+     * Quits the driver and releases resources.
+     */
+    @AfterClass(alwaysRun = true)
+    public void tearDown() {
+        log.info("Tearing down test environment");
+
         if (driver != null) {
-            return driver.getScreenshotAs(org.openqa.selenium.OutputType.BYTES);
+            driver.quit();
+            log.info("Driver quit successfully");
         }
-        return null;
+    }
+
+    /**
+     * Capture screenshot and attach it to Allure report.
+     * 
+     * @param testName name of the test
+     * @return screenshot as byte array
+     */
+    @Attachment(value = "Screenshot", type = "image/png")
+    private byte[] captureScreenshot(String testName) {
+        log.info("Capturing screenshot for failed test: {}", testName);
+
+        try {
+            return driver.getScreenshotAs(OutputType.BYTES);
+        } catch (Exception e) {
+            log.error("Failed to capture screenshot", e);
+            return null;
+        }
     }
 }
